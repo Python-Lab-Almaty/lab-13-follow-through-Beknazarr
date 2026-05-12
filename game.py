@@ -5,6 +5,24 @@ import hashlib
 import os
 import json
 
+def load_leaderboard():
+    if os.path.exists("leaderboard.json"):
+        with open("leaderboard.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_leaderboard(new_record):
+    data = load_leaderboard()
+    data.append(new_record)
+
+    # сортировка по очкам (по убыванию)
+    data = sorted(data, key=lambda x: x["score"], reverse=True)[:3]
+
+    with open("leaderboard.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    return data
+
 # ----------------------------
 # 🟢 КОНСТАНТЫ
 # ----------------------------
@@ -156,6 +174,7 @@ dynamic_obstacles = []
 # ----------------------------
 steps = 0
 penalties = 0
+lives = 3
 
 # ----------------------------
 # 🟢 СКОРОСТЬ
@@ -167,7 +186,6 @@ vy = 3
 # 🟢 РЕЖИМ
 # ----------------------------
 going_forward = True
-hero.color('yellow')
 
 # ----------------------------
 # 🟢 ОТРИСОВКА
@@ -272,7 +290,7 @@ def draw_all():
     score_drawer.goto(0, -HEIGHT//2 + 40)
     score = steps - penalties
     score_drawer.clear()
-    score_drawer.write(f"Steps: {steps} | Penalties: {penalties} | Score: {score}",
+    score_drawer.write(f"Steps: {steps} | Penalties: {penalties} | Score: {score} | Lives: {lives}",
                        align="center", font=("Arial", 16, "bold"))
     
     screen.update()
@@ -288,19 +306,26 @@ def rect_collision(hero_x, hero_y, rect_x, rect_y, rect_w, rect_h, hero_radius=1
 
 def check_collision():
     """Проверяет столкновения"""
-    global penalties
+    global penalties, lives
+
     for ox, oy, (w, h) in impassable_obstacles:
         if rect_collision(hero.xcor(), hero.ycor(), ox, oy, w, h, hero_radius=15):
-            penalties += 10
-            print(f"⚠️ ШТРАФ! (-10 баллов)")
+            penalties += 20
+            lives -= 1
+            print(f"⚠️ УДАР! ❤️ Lives: {lives}")
+
             hero.goto(hero.xcor() - vx*3, hero.ycor() - vy*3)
+
+            if lives <= 0:
+                return "game_over"
+
             return "penalty"
-    
+
     for obs in dynamic_obstacles:
         x, y, w, h, is_falling, speed, final_y = obs
         if rect_collision(hero.xcor(), hero.ycor(), x, y, w, h, hero_radius=15):
             return "game_over"
-    
+
     return "ok"
 
 # ----------------------------
@@ -398,7 +423,7 @@ print(f"⚠️ Препятствий: {len(impassable_obstacles)}")
 print(f"\n🎯 Цель: A → B → A")
 print(f"⌨️ Управление: стрелки или WASD")
 print(f"🔄 Сброс: R")
-print(f"\n🔴 КРАСНЫЕ = штраф -10")
+print(f"\n🔴 КРАСНЫЕ = штраф -20")
 print(f"🟢 ЗЕЛЁНЫЕ = GAME OVER (появляются на обратном пути)")
 
 while True:
